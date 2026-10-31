@@ -82,9 +82,10 @@ func main() {
 
 func handleConnection(conn net.Conn) {
 	defer conn.Close()
-	var buff []byte = make([]byte, 1024)
 
 	for {
+
+		var buff []byte = make([]byte, 1024)
 
 		n, err := conn.Read(buff)
 		if err != nil {
