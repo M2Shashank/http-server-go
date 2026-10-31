@@ -5,13 +5,14 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"strconv"
 	"strings"
 )
 
 type Request struct {
 	method, target, version string
-	headers map[string]string
-	body []byte
+	headers                 map[string]string
+	body                    []byte
 }
 
 func parseRequest(requestStr string) Request {
@@ -91,26 +92,25 @@ func handleConnection(conn net.Conn) {
 
 	var requestStr string = string(buff[:n])
 	var request Request = parseRequest(requestStr)
-	var requestTarget string = request.target
 
-	if requestTarget == "/" {
+	if request.target == "/" {
 		conn.Write([]byte("HTTP/1.1 200 OK\r\n\r\n"))
 		return
 	}
 
-	if strings.HasPrefix(requestTarget, "/echo/") {
-		var query string = requestTarget[6:]
+	if strings.HasPrefix(request.target, "/echo/") {
+		var query string = request.target[6:]
 
 		var res string = fmt.Sprintf(
-			"HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: %d\r\n\r\n%s", 
+			"HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: %d\r\n\r\n%s",
 			len(query), query,
 		)
 
-		conn.Write( []byte(res) )
+		conn.Write([]byte(res))
 		return
 	}
 
-	if requestTarget == "/user-agent" {
+	if request.target == "/user-agent" {
 		var userAgentInfo string = request.headers["User-Agent"]
 		var len int = len(userAgentInfo)
 
@@ -119,28 +119,50 @@ func handleConnection(conn net.Conn) {
 			len, userAgentInfo,
 		)
 
-		conn.Write( []byte(res) )
+		conn.Write([]byte(res))
 		return
 	}
 
-	if strings.HasPrefix(requestTarget, "/files/") {
-		var filePath string = (*directory) + requestTarget[7:]
+	if strings.HasPrefix(request.target, "/files/") {
+		var filePath string = (*directory) + request.target[7:]
 
-		fmt.Println("Serving file:", filePath)
+		switch request.method {
+		case "GET":
+			{
+				fmt.Println("Serving file:", filePath)
 
-		data, err := os.ReadFile(filePath)
-		if err != nil {
-			conn.Write([]byte("HTTP/1.1 404 Not Found\r\n\r\n"))
-			return
+				data, err := os.ReadFile(filePath)
+				if err != nil {
+					conn.Write([]byte("HTTP/1.1 404 Not Found\r\n\r\n"))
+					return
+				}
+
+				conn.Write(
+					fmt.Appendf(
+						[]byte{},
+						"HTTP/1.1 200 OK\r\nContent-Type: application/octet-stream\r\nContent-Length: %v\r\n\r\n%s",
+						len(data), string(data),
+					),
+				)
+			}
+		case "POST":
+			{
+				fmt.Println("Writing to file:", filePath)
+
+				var data []byte = request.body
+				n, _ := strconv.Atoi(request.headers["Content-Length"])
+
+				err = os.MkdirAll(filePath, 0755)
+				err = os.WriteFile(filePath, data[:n], 0644)
+				if err != nil {
+					conn.Write([]byte("HTTP/1.1 500 Internal Server Error\r\n\r\n"))
+					return
+				}
+
+				conn.Write([]byte("HTTP/1.1 201 Created\r\n\r\n"))
+			}
 		}
 
-		conn.Write(
-			fmt.Appendf(
-				[]byte{}, 
-				"HTTP/1.1 200 OK\r\nContent-Type: application/octet-stream\r\nContent-Length: %v\r\n\r\n%s", 
-				len(data), string(data),
-			),
-		)
 		return
 	}
 
