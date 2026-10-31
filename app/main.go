@@ -10,8 +10,8 @@ import (
 
 type Request struct {
 	method, target, version string
-	headers                 map[string]string
-	body                    []byte
+	headers map[string]string
+	body []byte
 }
 
 func parseRequest(requestStr string) Request {
@@ -52,7 +52,7 @@ func parseRequest(requestStr string) Request {
 
 var directory = flag.String(
 	"directory",
-	"",
+	"./",
 	"Directory to serve files from (default: current directory)",
 )
 
@@ -75,11 +75,15 @@ func handleConnection(conn net.Conn) {
 		return
 	}
 
-	if len(requestTarget) > 5 && requestTarget[:5] == "/echo" {
-		var bodyString string = requestTarget[6:]
-		var len int = len(bodyString)
-		var res string = fmt.Sprintf("HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: %d\r\n\r\n%s", len, bodyString)
-		conn.Write([]byte(res))
+	if strings.HasPrefix(requestTarget, "/echo/") {
+		var query string = requestTarget[6:]
+
+		var res string = fmt.Sprintf(
+			"HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: %d\r\n\r\n%s", 
+			len(query), query,
+		)
+
+		conn.Write( []byte(res) )
 		return
 	}
 
@@ -87,14 +91,19 @@ func handleConnection(conn net.Conn) {
 		var userAgentInfo string = request.headers["User-Agent"]
 		var len int = len(userAgentInfo)
 
-		var res string = fmt.Sprintf("HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: %d\r\n\r\n%s", len, userAgentInfo)
+		var res string = fmt.Sprintf(
+			"HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: %d\r\n\r\n%s",
+			len, userAgentInfo,
+		)
 
-		conn.Write([]byte(res))
+		conn.Write( []byte(res) )
 		return
 	}
 
-	if strings.HasPrefix(requestTarget, "/file/") {
-		var filePath string = *directory + requestTarget[6:]
+	if strings.HasPrefix(requestTarget, "/files/") {
+		var filePath string = (*directory) + requestTarget[7:]
+
+		fmt.Println("Serving file:", filePath)
 
 		data, err := os.ReadFile(filePath)
 		if err != nil {
@@ -103,11 +112,12 @@ func handleConnection(conn net.Conn) {
 		}
 
 		var responseText string = fmt.Sprintf(
-			"HTTP/1.1 200 OK\r\nContent-Type: application/octet-stream\r\nContent-Length: %d\r\n\r\n%s",
-			len(data), data,
+			"HTTP/1.1 200 OK\r\nContent-Type: application/octet-stream\r\nContent-Length: %d\r\n\r\n",
+			len(data),
 		)
 
 		conn.Write([]byte(responseText))
+		conn.Write(data)
 		return
 	}
 
