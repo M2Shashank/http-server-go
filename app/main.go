@@ -90,7 +90,7 @@ func handleConnection(conn net.Conn) {
 		n, err := conn.Read(buff)
 		if err != nil {
 			fmt.Println("Error reading from connection:", err)
-			continue
+			return
 		}
 
 		var requestStr string = string(buff[:n])
