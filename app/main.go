@@ -7,7 +7,7 @@ import (
 	"strings"
 )
 
-func do(conn net.Conn) {
+func handleConnection(conn net.Conn) {
 	defer conn.Close()
 	var buff []byte = make([]byte, 1024)
 
@@ -23,6 +23,10 @@ func do(conn net.Conn) {
 	var parts []string = strings.Fields(requestLine)
 	var requestTarget string = parts[1]
 
+	fmt.Println(lines[0])
+	fmt.Println(lines[1])
+	fmt.Println(lines[2])
+
 	if requestTarget == "/" {
 		conn.Write([]byte("HTTP/1.1 200 OK\r\n\r\n"))
 		return
@@ -34,6 +38,22 @@ func do(conn net.Conn) {
 		var res string = fmt.Sprintf("HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: %d\r\n\r\n%s", len, bodyString)
 		conn.Write([]byte(res))
 		return
+	}
+
+	if requestTarget == "/user-agent" {
+		var userAgentInfo string = ""
+
+		for _, line := range lines {
+			if strings.HasPrefix(line, "User-Agent: ") {
+				userAgentInfo = line[12:]
+				break
+			}
+		}
+
+		var len int = len(userAgentInfo)
+		var res string = fmt.Sprintf("HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: %d\r\n\r\n%s", len, userAgentInfo)
+
+		conn.Write([]byte(res))
 	}
 
 	conn.Write([]byte("HTTP/1.1 404 Not Found\r\n\r\n"))
@@ -56,6 +76,6 @@ func main() {
 			os.Exit(1)
 		}
 
-		do(conn)
+		handleConnection(conn)
 	}
 }
