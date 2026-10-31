@@ -152,7 +152,7 @@ func handleConnection(conn net.Conn) {
 				var data []byte = request.body
 				n, _ := strconv.Atoi(request.headers["Content-Length"])
 
-				err = os.MkdirAll(filePath, 0755)
+				err = os.MkdirAll(*directory, 0755)
 				err = os.WriteFile(filePath, data[:n], 0644)
 				if err != nil {
 					conn.Write([]byte("HTTP/1.1 500 Internal Server Error\r\n\r\n"))
@@ -162,7 +162,6 @@ func handleConnection(conn net.Conn) {
 				conn.Write([]byte("HTTP/1.1 201 Created\r\n\r\n"))
 			}
 		}
-
 		return
 	}
 
