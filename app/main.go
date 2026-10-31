@@ -16,19 +16,11 @@ func main() {
 		os.Exit(1)
 	}
 
-	_, err = l.Accept()
+	conn, err := l.Accept()
 	if err != nil {
 		fmt.Println("Error accepting connection: ", err.Error())
 		os.Exit(1)
 	}
 
-	conn, err := net.Dial("tcp", "0.0.0.0:4221")
-	if err != nil {
-		fmt.Println("Error connecting to server")
-		os.Exit(1)
-	} else {
-		fmt.Println("Connected to server on port 4221")
-	}
-
-	fmt.Fprintf(conn, "GET / HTTP/1.1 200 OK\r\n\r\n")
+	conn.Write( []byte("HTTP/1.1 200 OK\r\n\r\n") )
 }
