@@ -94,7 +94,7 @@ func handleConnection(conn net.Conn) {
 	}
 
 	if strings.HasPrefix(requestTarget, "/file/") {
-		var filePath string = *directory + requestTarget[5:]
+		var filePath string = *directory + requestTarget[6:]
 
 		data, err := os.ReadFile(filePath)
 		if err != nil {
