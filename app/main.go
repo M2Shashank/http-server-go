@@ -90,7 +90,7 @@ func handleConnection(conn net.Conn) {
 		n, err := conn.Read(buff)
 		if err != nil {
 			fmt.Println("Error reading from connection:", err)
-			return
+			continue
 		}
 
 		var requestStr string = string(buff[:n])
@@ -98,7 +98,7 @@ func handleConnection(conn net.Conn) {
 
 		if request.target == "/" {
 			conn.Write([]byte("HTTP/1.1 200 OK\r\n\r\n"))
-			return
+			continue
 		}
 
 		if strings.HasPrefix(request.target, "/echo/") {
@@ -110,7 +110,7 @@ func handleConnection(conn net.Conn) {
 			)
 
 			conn.Write([]byte(res))
-			return
+			continue
 		}
 
 		if request.target == "/user-agent" {
@@ -123,7 +123,7 @@ func handleConnection(conn net.Conn) {
 			)
 
 			conn.Write([]byte(res))
-			return
+			continue
 		}
 
 		if strings.HasPrefix(request.target, "/files/") {
@@ -137,7 +137,7 @@ func handleConnection(conn net.Conn) {
 					data, err := os.ReadFile(filePath)
 					if err != nil {
 						conn.Write([]byte("HTTP/1.1 404 Not Found\r\n\r\n"))
-						return
+						continue
 					}
 
 					conn.Write(
@@ -159,13 +159,13 @@ func handleConnection(conn net.Conn) {
 					err = os.WriteFile(filePath, data[:n], 0644)
 					if err != nil {
 						conn.Write([]byte("HTTP/1.1 500 Internal Server Error\r\n\r\n"))
-						return
+						continue
 					}
 
 					conn.Write([]byte("HTTP/1.1 201 Created\r\n\r\n"))
 				}
 			}
-			return
+			continue
 		}
 
 		conn.Write([]byte("HTTP/1.1 404 Not Found\r\n\r\n"))
