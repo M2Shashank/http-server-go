@@ -29,9 +29,9 @@ func do(conn net.Conn) {
 	}
 
 	if len(requestTarget) > 5 && requestTarget[:5] == "/echo" {
-		var bodyString string = requestTarget[7:]
+		var bodyString string = requestTarget[6:]
 		var len int = len(bodyString)
-		var res string = "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: " + string(len) + "\r\n\r\n" + bodyString
+		var res string = fmt.Sprintf("HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: %d\r\n\r\n%s", len, bodyString)
 		conn.Write([]byte(res))
 		return
 	}
