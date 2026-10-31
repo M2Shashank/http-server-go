@@ -23,10 +23,6 @@ func handleConnection(conn net.Conn) {
 	var parts []string = strings.Fields(requestLine)
 	var requestTarget string = parts[1]
 
-	fmt.Println(lines[0])
-	fmt.Println(lines[1])
-	fmt.Println(lines[2])
-
 	if requestTarget == "/" {
 		conn.Write([]byte("HTTP/1.1 200 OK\r\n\r\n"))
 		return
@@ -54,6 +50,7 @@ func handleConnection(conn net.Conn) {
 		var res string = fmt.Sprintf("HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: %d\r\n\r\n%s", len, userAgentInfo)
 
 		conn.Write([]byte(res))
+		return
 	}
 
 	conn.Write([]byte("HTTP/1.1 404 Not Found\r\n\r\n"))
@@ -76,6 +73,6 @@ func main() {
 			os.Exit(1)
 		}
 
-		handleConnection(conn)
+		go handleConnection(conn)
 	}
 }
