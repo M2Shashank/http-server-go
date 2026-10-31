@@ -82,10 +82,9 @@ func main() {
 
 func handleConnection(conn net.Conn) {
 	defer conn.Close()
+	var buff []byte = make([]byte, 1024)
 
 	for {
-
-		var buff []byte = make([]byte, 1024)
 
 		n, err := conn.Read(buff)
 		if err != nil {
@@ -96,34 +95,61 @@ func handleConnection(conn net.Conn) {
 		var requestStr string = string(buff[:n])
 		var request Request = parseRequest(requestStr)
 
+		var openConn bool = request.headers["Connection"] != "close"
+
 		if request.target == "/" {
-			conn.Write([]byte("HTTP/1.1 200 OK\r\n\r\n"))
-			continue
+			if openConn {
+				conn.Write([]byte("HTTP/1.1 200 OK\r\n\r\n"))
+				continue
+			} else {
+				conn.Write([]byte("HTTP/1.1 200 OK\r\nConnection: close\r\n\r\n"))
+				return
+			}
 		}
 
 		if strings.HasPrefix(request.target, "/echo/") {
 			var query string = request.target[6:]
 
-			var res string = fmt.Sprintf(
-				"HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: %d\r\n\r\n%s",
-				len(query), query,
-			)
+			if openConn {
+				var res string = fmt.Sprintf(
+					"HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: %d\r\n\r\n%s",
+					len(query), query,
+				)
 
-			conn.Write([]byte(res))
-			continue
+				conn.Write([]byte(res))
+				continue
+			} else {
+				var res string = fmt.Sprintf(
+					"HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: %d\r\nConnection: close\r\n\r\n%s",
+					len(query), query,
+				)
+
+				conn.Write([]byte(res))
+				return
+			}
 		}
 
 		if request.target == "/user-agent" {
 			var userAgentInfo string = request.headers["User-Agent"]
 			var len int = len(userAgentInfo)
 
-			var res string = fmt.Sprintf(
-				"HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: %d\r\n\r\n%s",
-				len, userAgentInfo,
-			)
+			if openConn {
+				var res string = fmt.Sprintf(
+					"HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: %d\r\n\r\n%s",
+					len, userAgentInfo,
+				)
 
-			conn.Write([]byte(res))
-			continue
+				conn.Write([]byte(res))
+				continue
+			} else {
+				var res string = fmt.Sprintf(
+					"HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: %d\r\nConnection: close\r\n\r\n%s",
+					len, userAgentInfo,
+				)
+
+				conn.Write([]byte(res))
+				return
+			}
 		}
 
 		if strings.HasPrefix(request.target, "/files/") {
@@ -140,13 +166,23 @@ func handleConnection(conn net.Conn) {
 						continue
 					}
 
-					conn.Write(
-						fmt.Appendf(
-							[]byte{},
-							"HTTP/1.1 200 OK\r\nContent-Type: application/octet-stream\r\nContent-Length: %v\r\n\r\n%s",
-							len(data), string(data),
-						),
-					)
+					if openConn {
+						conn.Write(
+							fmt.Appendf(
+								[]byte{},
+								"HTTP/1.1 200 OK\r\nContent-Type: application/octet-stream\r\nContent-Length: %v\r\n\r\n%s",
+								len(data), string(data),
+							),
+						)
+					} else {
+						conn.Write(
+							fmt.Appendf(
+								[]byte{},
+								"HTTP/1.1 200 OK\r\nContent-Type: application/octet-stream\r\nContent-Length: %v\r\nConnection: close\r\n\r\n%s",
+								len(data), string(data),
+							),
+						)
+					}
 				}
 			case "POST":
 				{
@@ -157,18 +193,30 @@ func handleConnection(conn net.Conn) {
 
 					err = os.MkdirAll(*directory, 0755)
 					err = os.WriteFile(filePath, data[:n], 0644)
-					if err != nil {
+					if err != nil || n > len(data) {
 						conn.Write([]byte("HTTP/1.1 500 Internal Server Error\r\n\r\n"))
 						continue
 					}
 
-					conn.Write([]byte("HTTP/1.1 201 Created\r\n\r\n"))
+					if openConn {
+						conn.Write([]byte("HTTP/1.1 201 Created\r\n\r\n"))
+					} else {
+						conn.Write([]byte("HTTP/1.1 201 Created\r\nConnection: close\r\n\r\n"))
+					}
 				}
 			}
-			continue
+
+			if openConn {
+				continue
+			} else {
+				return
+			}
 		}
 
 		conn.Write([]byte("HTTP/1.1 404 Not Found\r\n\r\n"))
 
+		if !openConn {
+			return
+		}
 	}
 }
