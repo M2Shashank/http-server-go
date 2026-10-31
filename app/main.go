@@ -56,6 +56,29 @@ var directory = flag.String(
 	"Directory to serve files from (default: current directory)",
 )
 
+func main() {
+	flag.Parse()
+
+	ls, err := net.Listen("tcp", "0.0.0.0:4221")
+	if err != nil {
+		fmt.Println("Failed to bind to port 4221")
+		os.Exit(1)
+	}
+
+	defer ls.Close()
+	fmt.Println("Server is listening on port 4221...")
+
+	for {
+		conn, err := ls.Accept()
+		if err != nil {
+			fmt.Println("Error accepting connection: ", err.Error())
+			os.Exit(1)
+		}
+
+		go handleConnection(conn)
+	}
+}
+
 func handleConnection(conn net.Conn) {
 	defer conn.Close()
 	var buff []byte = make([]byte, 1024)
@@ -111,38 +134,15 @@ func handleConnection(conn net.Conn) {
 			return
 		}
 
-		var responseText string = fmt.Sprintf(
-			"HTTP/1.1 200 OK\r\nContent-Type: application/octet-stream\r\nContent-Length: %d\r\n\r\n",
-			len(data),
+		conn.Write(
+			fmt.Appendf(
+				[]byte{}, 
+				"HTTP/1.1 200 OK\r\nContent-Type: application/octet-stream\r\nContent-Length: %v\r\n\r\n%s", 
+				len(data), string(data),
+			),
 		)
-
-		conn.Write([]byte(responseText))
-		conn.Write(data)
 		return
 	}
 
 	conn.Write([]byte("HTTP/1.1 404 Not Found\r\n\r\n"))
-}
-
-func main() {
-	flag.Parse()
-
-	ls, err := net.Listen("tcp", "0.0.0.0:4221")
-	if err != nil {
-		fmt.Println("Failed to bind to port 4221")
-		os.Exit(1)
-	}
-
-	defer ls.Close()
-	fmt.Println("Server is listening on port 4221...")
-
-	for {
-		conn, err := ls.Accept()
-		if err != nil {
-			fmt.Println("Error accepting connection: ", err.Error())
-			os.Exit(1)
-		}
-
-		go handleConnection(conn)
-	}
 }
