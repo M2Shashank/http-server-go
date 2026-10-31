@@ -84,86 +84,90 @@ func handleConnection(conn net.Conn) {
 	defer conn.Close()
 	var buff []byte = make([]byte, 1024)
 
-	n, err := conn.Read(buff)
-	if err != nil {
-		fmt.Println("Error reading from connection:", err)
-		return
-	}
+	for {
 
-	var requestStr string = string(buff[:n])
-	var request Request = parseRequest(requestStr)
-
-	if request.target == "/" {
-		conn.Write([]byte("HTTP/1.1 200 OK\r\n\r\n"))
-		return
-	}
-
-	if strings.HasPrefix(request.target, "/echo/") {
-		var query string = request.target[6:]
-
-		var res string = fmt.Sprintf(
-			"HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: %d\r\n\r\n%s",
-			len(query), query,
-		)
-
-		conn.Write([]byte(res))
-		return
-	}
-
-	if request.target == "/user-agent" {
-		var userAgentInfo string = request.headers["User-Agent"]
-		var len int = len(userAgentInfo)
-
-		var res string = fmt.Sprintf(
-			"HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: %d\r\n\r\n%s",
-			len, userAgentInfo,
-		)
-
-		conn.Write([]byte(res))
-		return
-	}
-
-	if strings.HasPrefix(request.target, "/files/") {
-		var filePath string = (*directory) + request.target[7:]
-
-		switch request.method {
-		case "GET":
-			{
-				fmt.Println("Serving file:", filePath)
-
-				data, err := os.ReadFile(filePath)
-				if err != nil {
-					conn.Write([]byte("HTTP/1.1 404 Not Found\r\n\r\n"))
-					return
-				}
-
-				conn.Write(
-					fmt.Appendf(
-						[]byte{},
-						"HTTP/1.1 200 OK\r\nContent-Type: application/octet-stream\r\nContent-Length: %v\r\n\r\n%s",
-						len(data), string(data),
-					),
-				)
-			}
-		case "POST":
-			{
-				fmt.Println("Writing to file:", filePath)
-
-				var data []byte = request.body
-				n, _ := strconv.Atoi(request.headers["Content-Length"])
-
-				err = os.MkdirAll(*directory, 0755)
-				err = os.WriteFile(filePath, data[:n], 0644)
-				if err != nil {
-					conn.Write([]byte("HTTP/1.1 500 Internal Server Error\r\n\r\n"))
-					return
-				}
-
-				conn.Write([]byte("HTTP/1.1 201 Created\r\n\r\n"))
-			}
+		n, err := conn.Read(buff)
+		if err != nil {
+			fmt.Println("Error reading from connection:", err)
+			return
 		}
-		return
-	}
 
-	conn.Write([]byte("HTTP/1.1 404 Not Found\r\n\r\n"))
+		var requestStr string = string(buff[:n])
+		var request Request = parseRequest(requestStr)
+
+		if request.target == "/" {
+			conn.Write([]byte("HTTP/1.1 200 OK\r\n\r\n"))
+			return
+		}
+
+		if strings.HasPrefix(request.target, "/echo/") {
+			var query string = request.target[6:]
+
+			var res string = fmt.Sprintf(
+				"HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: %d\r\n\r\n%s",
+				len(query), query,
+			)
+
+			conn.Write([]byte(res))
+			return
+		}
+
+		if request.target == "/user-agent" {
+			var userAgentInfo string = request.headers["User-Agent"]
+			var len int = len(userAgentInfo)
+
+			var res string = fmt.Sprintf(
+				"HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: %d\r\n\r\n%s",
+				len, userAgentInfo,
+			)
+
+			conn.Write([]byte(res))
+			return
+		}
+
+		if strings.HasPrefix(request.target, "/files/") {
+			var filePath string = (*directory) + request.target[7:]
+
+			switch request.method {
+			case "GET":
+				{
+					fmt.Println("Serving file:", filePath)
+
+					data, err := os.ReadFile(filePath)
+					if err != nil {
+						conn.Write([]byte("HTTP/1.1 404 Not Found\r\n\r\n"))
+						return
+					}
+
+					conn.Write(
+						fmt.Appendf(
+							[]byte{},
+							"HTTP/1.1 200 OK\r\nContent-Type: application/octet-stream\r\nContent-Length: %v\r\n\r\n%s",
+							len(data), string(data),
+						),
+					)
+				}
+			case "POST":
+				{
+					fmt.Println("Writing to file:", filePath)
+
+					var data []byte = request.body
+					n, _ := strconv.Atoi(request.headers["Content-Length"])
+
+					err = os.MkdirAll(*directory, 0755)
+					err = os.WriteFile(filePath, data[:n], 0644)
+					if err != nil {
+						conn.Write([]byte("HTTP/1.1 500 Internal Server Error\r\n\r\n"))
+						return
+					}
+
+					conn.Write([]byte("HTTP/1.1 201 Created\r\n\r\n"))
+				}
+			}
+			return
+		}
+
+		conn.Write([]byte("HTTP/1.1 404 Not Found\r\n\r\n"))
+
+	}
 }
