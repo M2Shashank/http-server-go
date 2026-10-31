@@ -30,5 +30,5 @@ func main() {
 		fmt.Println("Connected to server on port 4221")
 	}
 
-	fmt.Fprintf(conn, "HTTP/1.1 200 OK\r\n\r\n")
+	fmt.Fprintf(conn, "GET / HTTP/1.1 200 OK\r\n\r\n")
 }
