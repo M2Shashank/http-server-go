@@ -8,30 +8,35 @@ import (
 )
 
 func do(conn net.Conn) {
+	defer conn.Close()
 	var buff []byte = make([]byte, 1024)
 
-	_, err := conn.Read(buff)
+	n, err := conn.Read(buff)
 	if err != nil {
-		fmt.Println("Error reading from connection: ", err.Error())
-		conn.Close()
+		fmt.Println("Error reading from connection:", err)
 		return
 	}
 
-	var request string = string(buff[:])
+	var request string = string(buff[:n])
 	var lines []string = strings.Split(request, "\r\n")
 	var requestLine string = lines[0]
 	var parts []string = strings.Fields(requestLine)
 	var requestTarget string = parts[1]
 
-	var response []byte
 	if requestTarget == "/" {
-		response = []byte("HTTP/1.1 200 OK\r\n\r\n")
-	} else {
-		response = []byte("HTTP/1.1 404 Not Found\r\n\r\n")
+		conn.Write([]byte("HTTP/1.1 200 OK\r\n\r\n"))
+		return
 	}
 
-	conn.Write(response)
-	conn.Close()
+	if len(requestTarget) > 5 && requestTarget[:5] == "/echo" {
+		var bodyString string = requestTarget[7:]
+		var len int = len(bodyString)
+		var res string = "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: " + string(len) + "\r\n\r\n" + bodyString
+		conn.Write([]byte(res))
+		return
+	}
+
+	conn.Write([]byte("HTTP/1.1 404 Not Found\r\n\r\n"))
 }
 
 func main() {
