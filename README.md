@@ -1,37 +1,117 @@
-[![progress-banner](https://backend.codecrafters.io/progress/http-server/6af37a73-175f-4d8f-b43d-7a18358fbbb2)](https://app.codecrafters.io/users/M2Shashank?r=2qF)
+# HTTP Server in Go
 
-This is a starting point for Go solutions to the
-["Build Your Own HTTP server" Challenge](https://app.codecrafters.io/courses/http-server/overview).
+A small HTTP/1.1 server built from scratch in Go as part of the
+CodeCrafters challenge.
 
-[HTTP](https://en.wikipedia.org/wiki/Hypertext_Transfer_Protocol) is the
-protocol that powers the web. In this challenge, you'll build a HTTP/1.1 server
-that is capable of serving multiple clients.
+The server uses TCP sockets directly, parses HTTP requests, supports multiple
+clients concurrently, and serves files from a configurable directory.
 
-Along the way you'll learn about TCP servers,
-[HTTP request syntax](https://www.w3.org/Protocols/rfc2616/rfc2616-sec5.html),
-and more.
+## Features
 
-**Note**: If you're viewing this repo on GitHub, head over to
-[codecrafters.io](https://codecrafters.io) to try the challenge.
+- HTTP/1.1 request parsing
+- Concurrent client handling with goroutines
+- Persistent connections and `Connection: close`
+- `GET /`
+- `GET /echo/{text}`
+- `GET /user-agent`
+- `GET /files/{filename}`
+- `POST /files/{filename}`
+- Optional gzip compression for echo responses
+- Configurable file directory
 
-# Passing the first stage
+## Project structure
 
-The entry point for your HTTP server implementation is in `app/main.go`. Study
-and uncomment the relevant code, and then run the command below to execute the
-tests on our servers:
+```text
+.
+├── app/
+│   └── main.go       # HTTP server implementation and entry point
+├── hello.txt         # Sample file
+├── go.mod
+├── go.sum
+├── your_program.sh   # Build and run locally
+└── README.md
+```
+
+## Requirements
+
+- Go 1.27 or newer
+
+## Run locally
+
+Clone the repository and start the server:
+
+```sh
+./your_program.sh
+```
+
+The server listens on `0.0.0.0:4221`.
+
+On Windows, run the script through a POSIX-compatible shell, or build and run
+the application directly:
+
+```sh
+go build -o http-server.exe ./app
+.\http-server.exe
+```
+
+To serve files from a specific directory:
+
+```sh
+./your_program.sh --directory ./data
+```
+
+## Endpoints
+
+### Root
+
+```sh
+curl http://localhost:4221/
+```
+
+### Echo
+
+```sh
+curl http://localhost:4221/echo/hello
+```
+
+The server returns `hello`. If the client advertises gzip support, the
+response is gzip-compressed:
+
+```sh
+curl --compressed http://localhost:4221/echo/hello
+```
+
+### User-Agent
+
+```sh
+curl -A "ExampleClient/1.0" http://localhost:4221/user-agent
+```
+
+### Files
+
+Read a file:
+
+```sh
+curl http://localhost:4221/files/hello.txt
+```
+
+Create or overwrite a file:
+
+```sh
+curl -X POST --data "Hello from the HTTP server" \
+  http://localhost:4221/files/example.txt
+```
+
+The file endpoint uses the directory provided through `--directory`. By
+default, it uses the current working directory.
+
+## CodeCrafters
+
+Run the CodeCrafters test suite with:
 
 ```sh
 codecrafters submit
 ```
 
-Time to move on to the next stage!
-
-# Stage 2 & beyond
-
-Note: This section is for stages 2 and beyond.
-
-1. Ensure you have `go (1.27)` installed locally
-1. Run `./your_program.sh` to run your program, which is implemented in
-   `app/main.go`.
-1. Run `codecrafters submit` to submit your solution to CodeCrafters. Test
-   output will be streamed to your terminal.
+This project follows the CodeCrafters program interface, which builds the
+application from `app/main.go`.
