@@ -5,8 +5,10 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"io"
 	"strconv"
 	"strings"
+	"bufio"
 )
 
 type Request struct {
@@ -15,40 +17,47 @@ type Request struct {
 	body []byte
 }
 
-func parseRequest(requestStr string) Request {
-	var request Request = Request{}
-	var lines []string = strings.Split(requestStr, "\r\n")
+func parseRequest(reader *bufio.Reader) (Request, error) {
+	var request Request = Request{
+		headers: make(map[string]string),
+	}
 
-	var requestLine string = lines[0]
-	var parts []string = strings.Fields(requestLine)
+	requestStatus, err := reader.ReadString('\n')
+	if err != nil {
+		return request, fmt.Errorf("Error reading request: %s", err.Error())
+	}
+	var parts []string = strings.Fields(requestStatus)
 	request.method = parts[0]
 	request.target = parts[1]
 	request.version = parts[2]
-	request.headers = make(map[string]string)
 
-	var bodyString strings.Builder = strings.Builder{}
-	var isBody bool = false
-	for _, line := range lines[1:] {
-		if line == "" {
-			isBody = true
-			continue
+	for {
+		line, err := reader.ReadString('\n')
+		if err != nil {
+			return request, fmt.Errorf("Error reading request: %s", err.Error())
 		}
 
-		if isBody {
-			bodyString.WriteString(line)
-			bodyString.WriteString("\r\n")
-			continue
+
+		if line == "\r\n" {
+			break
 		}
 
-		var parts []string = strings.Split(line, ": ")
-		if len(parts) == 2 {
-			request.headers[parts[0]] = parts[1]
-		}
+		key, value, ok := strings.Cut(line, ":")
+        if !ok { continue }
+
+        request.headers[strings.TrimSpace(key)] =
+            strings.TrimSpace(value)
 	}
 
-	request.body = []byte(bodyString.String())
+	var n, _ = strconv.Atoi(request.headers["Content-Length"])
+	request.body = make([]byte, n)
 
-	return request
+	_, err = io.ReadFull(reader, request.body)
+	if err != nil {
+		return request, fmt.Errorf("Error reading request body: %s", err.Error())
+	}
+
+	return request, nil
 }
 
 type Response struct {
@@ -105,18 +114,15 @@ func main() {
 
 func handleConnection(conn net.Conn) {
 	defer conn.Close()
-	var buff []byte = make([]byte, 1024)
+	var reader *bufio.Reader = bufio.NewReader(conn)
 
 	for {
 
-		n, err := conn.Read(buff)
+		request, err := parseRequest(reader)
 		if err != nil {
-			fmt.Println("Error reading from connection:", err)
+			fmt.Println("Error parsing request: ", err.Error())
 			return
 		}
-
-		var requestStr string = string(buff[:n])
-		var request Request = parseRequest(requestStr)
 
 		var response Response = Response{
 			version: "HTTP/1.1",
@@ -146,6 +152,10 @@ func handleConnection(conn net.Conn) {
 			response.body = []byte(query)
 			response.headers["Content-Type"] = "text/plain"
 			response.headers["Content-Length"] = strconv.Itoa(len(query))
+			var encoding string = request.headers["Accept-Encoding"]
+			if strings.Contains(encoding, "gzip") {
+				response.headers["Content-Encoding"] = "gzip"
+			}
 
 			conn.Write([]byte(response.BuildResponse()))
 			
@@ -199,11 +209,10 @@ func handleConnection(conn net.Conn) {
 					fmt.Println("Writing to file:", filePath)
 
 					var data []byte = request.body
-					n, _ := strconv.Atoi(request.headers["Content-Length"])
 
-					err = os.MkdirAll(*directory, 0755)
-					err = os.WriteFile(filePath, data[:n], 0644)
-					if err != nil || n > len(data) {
+					var err1 error = os.MkdirAll(*directory, 0755)
+					var err2 error = os.WriteFile(filePath, data, 0644)
+					if err1 != nil || err2 != nil {
 						response.statusCode = 500
 						response.status = "Internal Server Error"
 						conn.Write([]byte(response.BuildResponse()))
