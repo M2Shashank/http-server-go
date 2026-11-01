@@ -4,6 +4,8 @@ import (
 	"flag"
 	"fmt"
 	"net"
+	"compress/gzip"
+	"bytes"
 	"os"
 	"io"
 	"strconv"
@@ -145,17 +147,27 @@ func handleConnection(conn net.Conn) {
 		}
 
 		if strings.HasPrefix(request.target, "/echo/") {
-			var query string = request.target[6:]
+			var pathBody string = request.target[6:]
 
 			response.statusCode = 200
 			response.status = "OK"
-			response.body = []byte(query)
 			response.headers["Content-Type"] = "text/plain"
-			response.headers["Content-Length"] = strconv.Itoa(len(query))
+
 			var encoding string = request.headers["Accept-Encoding"]
 			if strings.Contains(encoding, "gzip") {
 				response.headers["Content-Encoding"] = "gzip"
+
+				var buff bytes.Buffer
+				var w *gzip.Writer = gzip.NewWriter(&buff)
+				w.Write([]byte(pathBody))
+				w.Close()
+
+				response.body = buff.Bytes()
+			} else {
+				response.body = []byte(pathBody)
 			}
+
+			response.headers["Content-Length"] = strconv.Itoa(len(response.body))
 
 			conn.Write([]byte(response.BuildResponse()))
 			
